@@ -12,14 +12,16 @@ function PrivateRoute({ children }) {
 
 export default function App() {
   return (
-    <>
+    <div className="app">
       <NavBar />
-      <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/notes/new" element={<PrivateRoute><NoteEditor /></PrivateRoute>} />
-        <Route path="/flashcards/:noteId" element={<PrivateRoute><Flashcards /></PrivateRoute>} />
-      </Routes>
-    </>
+      <main className="app-main">
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/notes/new" element={<PrivateRoute><NoteEditor /></PrivateRoute>} />
+          <Route path="/flashcards/:noteId" element={<PrivateRoute><Flashcards /></PrivateRoute>} />
+        </Routes>
+      </main>
+    </div>
   );
 }

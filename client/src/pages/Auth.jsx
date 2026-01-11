@@ -30,29 +30,51 @@ export default function Auth() {
 
   return (
     <div className="container">
-      <div className="card" style={{ maxWidth: 420, margin: "48px auto" }}>
-        <h2>{mode === "login" ? "Login" : "Create account"}</h2>
+      <div className="card hero" style={{ maxWidth: 520, margin: "48px auto" }}>
+        <h2 className="page-title">{mode === "login" ? "Welcome back" : "Create your account"}</h2>
+        <p className="page-subtitle">
+          Turn long notes into focused study cards in seconds.
+        </p>
         <form onSubmit={submit}>
           {mode === "register" && (
-            <input className="input" placeholder="Your name"
-              value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+            <input
+              className="input"
+              placeholder="Your name"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+            />
           )}
-          <input className="input" type="email" placeholder="Email"
-            value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-          <input className="input" type="password" placeholder="Password"
-            value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/>
-          {error && <p style={{color:"crimson"}}>{error}</p>}
+          <input
+            className="input"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={e => setForm({ ...form, email: e.target.value })}
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+          />
+          {error && <div className="alert error">{error}</div>}
           <button className="btn" disabled={loading}>
             {loading ? "Please wait..." : (mode === "login" ? "Login" : "Register")}
           </button>
         </form>
-        <p style={{marginTop:12}}>
-          {mode === "login" ? (
-            <>No account? <button className="btn" onClick={()=>setMode("register")}>Register</button></>
-          ) : (
-            <>Have an account? <button className="btn" onClick={()=>setMode("login")}>Login</button></>
-          )}
-        </p>
+        <div className="row" style={{ marginTop: 16 }}>
+          <span className="meta">
+            {mode === "login" ? "New here?" : "Already have an account?"}
+          </span>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
+          >
+            {mode === "login" ? "Create an account" : "Login"}
+          </button>
+        </div>
       </div>
     </div>
   );

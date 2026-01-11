@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import notesRoutes from "./routes/notes.js";
 import flashcardRoutes from "./routes/flashcards.js";
+import { createError } from "./utils/errors.js";
 
 dotenv.config();
 
@@ -30,6 +31,15 @@ app.use((req, res, next) => {
   next();
 });
 
+const requiredEnv = ["MONGO_URI", "JWT_SECRET"];
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.warn(`⚠️ Missing env vars: ${missingEnv.join(", ")}`);
+}
+if (!process.env.OPENAI_API_KEY) {
+  console.warn("⚠️ OPENAI_API_KEY is not set; flashcard generation will fail.");
+}
+
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
@@ -42,6 +52,22 @@ app.use("/api/notes", notesRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 
 app.get("/", (_req, res) => res.send("StudyBuddy AI server is running"));
+
+app.use((_req, _res, next) => {
+  next(createError(404, "Route not found", "NOT_FOUND"));
+});
+
+app.use((err, _req, res, _next) => {
+  const isBadJson = err?.type === "entity.parse.failed";
+  const status = isBadJson ? 400 : err.status || 500;
+  const code = isBadJson ? "BAD_JSON" : err.code || (status >= 500 ? "SERVER_ERROR" : "ERROR");
+  const message = isBadJson ? "Invalid JSON body" : err.message || "Server error";
+
+  if (status >= 500) {
+    console.error(err);
+  }
+  res.status(status).json({ error: message, code });
+});
 
 const port = process.env.PORT || 5050;
 app.listen(port, () => console.log(`🚀 Server listening on port ${port}`));

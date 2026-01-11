@@ -13,4 +13,6 @@ api.interceptors.request.use((config) => {
 
 export default api;
 
-console.log("API base URL:", import.meta.env.VITE_API_URL);
+if (import.meta.env.DEV) {
+  console.log("API base URL:", import.meta.env.VITE_API_URL);
+}
