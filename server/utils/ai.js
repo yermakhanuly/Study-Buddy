@@ -51,14 +51,18 @@ const normalizeOpenAIError = (err) => {
   return createError(502, "AI request failed", "AI_ERROR");
 };
 
-export async function generateFlashcardsFromText(text) {
+export async function generateFlashcardsFromText(text, count = 8) {
+  const safeCount = Number.isInteger(count)
+    ? Math.min(Math.max(count, 1), 20)
+    : 8;
+
   if (!process.env.OPENAI_API_KEY) {
     throw createError(500, "OpenAI API key missing", "AI_CONFIG_MISSING");
   }
 
   // Keep prompt simple and robust
   const prompt = `
-Create 8 concise study flashcards from the following notes.
+Create ${safeCount} concise study flashcards from the following notes.
 Return JSON array of objects with keys: "question", "answer".
 Notes:
 """${text.slice(0, 5000)}"""
@@ -103,5 +107,5 @@ JSON ONLY:
   // Validate shape
   return (Array.isArray(data) ? data : [])
     .filter(x => x && x.question && x.answer)
-    .slice(0, 12);
+    .slice(0, safeCount);
 }

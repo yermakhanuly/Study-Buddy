@@ -22,7 +22,6 @@ export default function NavBar() {
               <span className="avatar">{initial}</span>
               <span>Hello, {userName || "Student"}</span>
             </span>
-            <Link className="btn" to="/notes/new">New Note</Link>
             <button className="btn btn-secondary" onClick={logout}>Logout</button>
           </>
         ) : (

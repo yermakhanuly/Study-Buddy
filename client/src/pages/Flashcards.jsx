@@ -9,6 +9,7 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(()=>{
     (async ()=>{
@@ -44,6 +45,22 @@ export default function Flashcards() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    const ok = window.confirm("Delete all flashcards for this note?");
+    if (!ok) return;
+    setError("");
+    setDeletingAll(true);
+    try {
+      const res = await api.delete(`/flashcards/note/${noteId}`);
+      setCards([]);
+      setNotice(`Deleted ${res.data.deletedCount || 0} flashcards.`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Could not delete flashcards");
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <div className="container">
       <div className="page-head">
@@ -51,7 +68,17 @@ export default function Flashcards() {
           <h2 className="page-title">Flashcards</h2>
           <p className="page-subtitle">Tap a card to flip the answer.</p>
         </div>
-        <Link className="btn btn-secondary" to="/">Back to Notes</Link>
+        <div className="row">
+          <button
+            className="btn btn-danger"
+            type="button"
+            disabled={deletingAll || cards.length === 0}
+            onClick={handleDeleteAll}
+          >
+            {deletingAll ? "Deleting..." : "Delete All"}
+          </button>
+          <Link className="btn btn-secondary" to="/">Back to Notes</Link>
+        </div>
       </div>
 
       {notice && <div className="alert success">{notice}</div>}

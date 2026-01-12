@@ -27,16 +27,49 @@ router.post("/", auth, asyncHandler(async (req, res) => {
   res.json(note);
 }));
 
+router.delete("/:noteId", auth, asyncHandler(async (req, res) => {
+  const { noteId } = req.params;
+  if (!isValidObjectId(noteId)) {
+    throw createError(400, "Invalid note id", "VALIDATION_ERROR");
+  }
+
+  const note = await Note.findOneAndDelete({ _id: noteId, userId: req.user.id });
+  if (!note) throw createError(404, "Note not found", "NOT_FOUND");
+
+  await Flashcard.deleteMany({ userId: req.user.id, noteId });
+  res.json({ ok: true });
+}));
+
 // List notes
 router.get("/", auth, asyncHandler(async (req, res) => {
-  const notes = await Note.find({ userId: req.user.id }).sort({ createdAt: -1 });
-  res.json(notes);
+  const notes = await Note.find({ userId: req.user.id }).sort({ createdAt: -1 }).lean();
+  const noteIds = notes.map((note) => note._id);
+
+  let countMap = new Map();
+  if (noteIds.length > 0) {
+    const counts = await Flashcard.aggregate([
+      { $match: { noteId: { $in: noteIds } } },
+      { $group: { _id: "$noteId", count: { $sum: 1 } } }
+    ]);
+    countMap = new Map(counts.map((item) => [String(item._id), item.count]));
+  }
+
+  const withCounts = notes.map((note) => ({
+    ...note,
+    flashcardCount: countMap.get(String(note._id)) || 0
+  }));
+  res.json(withCounts);
 }));
 
 // Generate flashcards for a note
 router.post("/:noteId/generate-flashcards", auth, asyncHandler(async (req, res) => {
   const { noteId } = req.params;
   const isAsync = ["1", "true", "yes"].includes(String(req.query.async || ""));
+  const rawCount = req.body?.count ?? req.query?.count;
+  const requestedCount = rawCount === undefined ? 8 : Math.trunc(Number(rawCount));
+  if (!Number.isFinite(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+    throw createError(400, "Invalid flashcard count (1-20)", "VALIDATION_ERROR");
+  }
   if (!isValidObjectId(noteId)) {
     throw createError(400, "Invalid note id", "VALIDATION_ERROR");
   }
@@ -51,7 +84,7 @@ router.post("/:noteId/generate-flashcards", auth, asyncHandler(async (req, res) 
     setImmediate(async () => {
       updateFlashcardJob(job.id, { status: "running" });
       try {
-        const generated = await generateFlashcardsFromText(note.content);
+        const generated = await generateFlashcardsFromText(note.content, requestedCount);
         const cards = await Flashcard.insertMany(
           generated.map(fc => ({
             userId: req.user.id,
@@ -71,7 +104,7 @@ router.post("/:noteId/generate-flashcards", auth, asyncHandler(async (req, res) 
     return;
   }
 
-  const generated = await generateFlashcardsFromText(note.content);
+  const generated = await generateFlashcardsFromText(note.content, requestedCount);
   const cards = await Flashcard.insertMany(
     generated.map(fc => ({
       userId: req.user.id,

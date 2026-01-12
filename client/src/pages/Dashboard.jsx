@@ -9,27 +9,33 @@ export default function Dashboard() {
   const [notice, setNotice] = useState("");
   const [generatingId, setGeneratingId] = useState(null);
   const [activeNote, setActiveNote] = useState(null);
+  const [generationTarget, setGenerationTarget] = useState(null);
+  const [cardCount, setCardCount] = useState(() => {
+    const stored = Number(localStorage.getItem("flashcardCount"));
+    return Number.isFinite(stored) && stored >= 1 && stored <= 20 ? stored : 8;
+  });
   const mounted = useRef(true);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.get("/notes");
-        if (alive) setNotes(res.data);
-      } catch (err) {
-        if (alive) setError(err.response?.data?.error || "Could not load notes");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
+    mounted.current = true;
+    return () => { mounted.current = false; };
   }, []);
 
+  const loadNotes = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get("/notes");
+      if (mounted.current) setNotes(res.data);
+    } catch (err) {
+      if (mounted.current) setError(err.response?.data?.error || "Could not load notes");
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    return () => { mounted.current = false; };
+    loadNotes();
   }, []);
 
   useEffect(() => {
@@ -38,25 +44,51 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const pollJob = async (noteId, jobId) => {
+  const updateCardCount = (value) => {
+    if (!Number.isFinite(value)) return;
+    const next = Math.min(Math.max(value, 1), 20);
+    setCardCount(next);
+    localStorage.setItem("flashcardCount", String(next));
+  };
+
+  const updateNoteCount = (noteId, delta) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note._id === noteId
+          ? { ...note, flashcardCount: (note.flashcardCount || 0) + delta }
+          : note
+      )
+    );
+  };
+
+  const startGeneration = async (noteId) => {
+    setNotice("");
+    setError("");
+    setGeneratingId(noteId);
     try {
-      const res = await api.get(`/notes/${noteId}/flashcard-jobs/${jobId}`);
-      if (!mounted.current) return;
-      if (res.data.status === "succeeded") {
-        setNotice(`Generated ${res.data.count} flashcards.`);
-        setGeneratingId(null);
-        return;
-      }
-      if (res.data.status === "failed") {
-        setError(res.data.error || "Flashcard generation failed");
-        setGeneratingId(null);
-        return;
-      }
-      setTimeout(() => pollJob(noteId, jobId), 1500);
+      const res = await api.post(
+        `/notes/${noteId}/generate-flashcards`,
+        { count: cardCount }
+      );
+      setNotice(`Flashcards ready: ${res.data.count} added.`);
+      updateNoteCount(noteId, res.data.count);
     } catch (err) {
+      setError(err.response?.data?.error || "Flashcard generation failed");
+    } finally {
       if (!mounted.current) return;
-      setError(err.response?.data?.error || "Could not check generation status");
       setGeneratingId(null);
+    }
+  };
+
+  const deleteNote = async (noteId) => {
+    const ok = window.confirm("Delete this note and its flashcards?");
+    if (!ok) return;
+    setError("");
+    try {
+      await api.delete(`/notes/${noteId}`);
+      setNotes((prev) => prev.filter((note) => note._id !== noteId));
+    } catch (err) {
+      setError(err.response?.data?.error || "Could not delete note");
     }
   };
 
@@ -73,7 +105,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {notice && <div className="alert success">{notice}</div>}
       {error && <div className="alert error">{error}</div>}
 
       {loading ? (
@@ -91,15 +122,15 @@ export default function Dashboard() {
       ) : (
         <div className="grid">
           {notes.map(n => (
-            <div key={n._id} className="card">
+            <div key={n._id} className="card note-card">
               <div className="row space">
                 <h3>{n.title}</h3>
-                <span className="meta">{n.content.length} chars</span>
+                <span className="badge">{n.flashcardCount || 0} cards</span>
               </div>
               <p style={{ opacity: 0.8, whiteSpace: "pre-wrap" }}>
                 {`${n.content.slice(0, 180)}${n.content.length > 180 ? "..." : ""}`}
               </p>
-              <div className="row">
+              <div className="row note-actions">
                 {n.content.length > 180 && (
                   <button
                     className="btn btn-ghost"
@@ -112,33 +143,17 @@ export default function Dashboard() {
                 <Link className="btn btn-secondary" to={`/flashcards/${n._id}`}>View Flashcards</Link>
                 <button
                   className="btn"
-                  disabled={generatingId === n._id}
-                  onClick={async () => {
-                    setNotice("");
-                    setError("");
-                    setGeneratingId(n._id);
-                    let shouldClear = true;
-                    try {
-                      const res = await api.post(
-                        `/notes/${n._id}/generate-flashcards`,
-                        null,
-                        { params: { async: 1 } }
-                      );
-                      if (res.status === 202 && res.data.jobId) {
-                        shouldClear = false;
-                        pollJob(n._id, res.data.jobId);
-                        return;
-                      }
-                      setNotice(`Generated ${res.data.count} flashcards.`);
-                    } catch (err) {
-                      setError(err.response?.data?.error || "Flashcard generation failed");
-                    } finally {
-                      if (!mounted.current || !shouldClear) return;
-                      setGeneratingId(null);
-                    }
-                  }}
+                  disabled={Boolean(generatingId)}
+                  onClick={() => setGenerationTarget(n)}
                 >
                   {generatingId === n._id ? "Generating..." : "Generate Flashcards"}
+                </button>
+                <button
+                  className="btn btn-danger btn-small"
+                  type="button"
+                  onClick={() => deleteNote(n._id)}
+                >
+                  Delete Note
                 </button>
               </div>
             </div>
@@ -159,6 +174,46 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {generationTarget && (
+        <div className="modal-backdrop" onClick={() => setGenerationTarget(null)}>
+          <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
+            <h3>Generate flashcards</h3>
+            <p className="meta">Choose how many cards to create for this note.</p>
+            <label className="row" style={{ gap: 10, marginTop: 12 }}>
+              <span className="meta">Cards</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="20"
+                value={cardCount}
+                onChange={(e) => updateCardCount(Number(e.target.value))}
+                style={{ width: 120, margin: 0 }}
+              />
+            </label>
+            <div className="row" style={{ marginTop: 16 }}>
+              <button className="btn btn-secondary" type="button" onClick={() => setGenerationTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={Boolean(generatingId)}
+                onClick={() => {
+                  const targetId = generationTarget._id;
+                  setGenerationTarget(null);
+                  startGeneration(targetId);
+                }}
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notice && <div className="toast">{notice}</div>}
     </div>
   );
 }

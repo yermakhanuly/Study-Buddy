@@ -49,9 +49,18 @@ export default function NoteEditor() {
           />
           <div className="row space">
             <span className="meta">{content.length} characters</span>
-            <button className="btn" disabled={loading || !title || !content}>
-              {loading ? "Saving..." : "Save Note"}
-            </button>
+            <div className="row">
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => navigate(-1)}
+              >
+                Cancel
+              </button>
+              <button className="btn" disabled={loading || !title || !content}>
+                {loading ? "Saving..." : "Save Note"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

@@ -20,6 +20,19 @@ router.get("/", auth, asyncHandler(async (req, res) => {
   res.json(cards);
 }));
 
+router.delete("/note/:noteId", auth, asyncHandler(async (req, res) => {
+  const { noteId } = req.params;
+  if (!isValidObjectId(noteId)) {
+    throw createError(400, "Invalid note id", "VALIDATION_ERROR");
+  }
+
+  const result = await Flashcard.deleteMany({
+    userId: req.user.id,
+    noteId
+  });
+  res.json({ ok: true, deletedCount: result.deletedCount || 0 });
+}));
+
 router.delete("/:flashcardId", auth, asyncHandler(async (req, res) => {
   const { flashcardId } = req.params;
   if (!isValidObjectId(flashcardId)) {

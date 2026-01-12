@@ -146,6 +146,9 @@ a { text-decoration: none; color: inherit; }
 
 .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
+.note-card { display: flex; flex-direction: column; min-height: 260px; }
+.note-actions { margin-top: auto; }
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -242,11 +245,28 @@ a { text-decoration: none; color: inherit; }
   animation: liftIn 0.2s ease both;
 }
 
+.modal-small {
+  max-width: 420px;
+}
+
 .modal-body {
   white-space: pre-wrap;
   word-break: break-word;
   margin-top: 12px;
   color: var(--text);
+}
+
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #1f2a2a;
+  color: #f6f9f8;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
+  z-index: 30;
+  animation: liftIn 0.2s ease both;
 }
 
 @keyframes liftIn {
